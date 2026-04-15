@@ -1,4 +1,4 @@
-# mcp_with_claude
+# MCP with Claude code
 Build MCP Server with Claude code
 
 1. Install dependencies
