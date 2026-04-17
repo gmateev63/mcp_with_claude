@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 pip install -r requirements.txt
-export ANTHROPIC_API_KEY=sk-...   # required by app.py
+export OPENROUTER_API_KEY=sk-...   # required by app.py
 ```
 
 ## Running
