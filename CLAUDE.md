@@ -28,7 +28,7 @@ Two files, two roles:
 **`app.py`** — The client. It:
 1. Launches `mcp_server.py` as a subprocess via `StdioServerParameters`
 2. Opens an `mcp.ClientSession` over stdio to discover available tools
-3. Passes those tools (converted to Anthropic format) to `claude-opus-4-6` via the `anthropic` SDK
+3. Passes those tools
 4. Runs a standard tool-use agentic loop: sends tool results back until `stop_reason == "end_turn"`
 
 **Tool format conversion**: MCP tools (`tool.name`, `tool.description`, `tool.inputSchema`) map directly to the Anthropic `tools` array (`name`, `description`, `input_schema`).
