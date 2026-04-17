@@ -1,15 +1,20 @@
-"""Demo app: calls Claude (claude-opus-4-6) with tools from the local MCP server."""
+"""Demo app: calls OpenRouter (openai/gpt-4o) with tools from the local MCP server."""
 import asyncio
+import json
+import os
 import sys
-import anthropic
+from openai import OpenAI
 from mcp import ClientSession
 from mcp.client.stdio import StdioServerParameters, stdio_client
 
+OPENROUTER_MODEL = "openai/gpt-oss-20b:free"
 
 async def main():
-    client = anthropic.Anthropic()
+    client = OpenAI(
+        api_key=os.environ.get("OPENROUTER_API_KEY"),
+        base_url="https://openrouter.ai/api/v1",
+    )
 
-    # Launch mcp_server.py as a subprocess and connect to it via stdio
     server_params = StdioServerParameters(
         command=sys.executable,
         args=["mcp_server.py"],
@@ -21,50 +26,54 @@ async def main():
 
             # Discover tools from the MCP server
             tools_result = await session.list_tools()
-            anthropic_tools = [
+            openai_tools = [
                 {
-                    "name": tool.name,
-                    "description": tool.description,
-                    "input_schema": tool.inputSchema,
+                    "type": "function",
+                    "function": {
+                        "name": tool.name,
+                        "description": tool.description,
+                        "parameters": tool.inputSchema,
+                    },
                 }
                 for tool in tools_result.tools
             ]
-            print(f"MCP tools available: {[t['name'] for t in anthropic_tools]}\n")
+            print(f"MCP tools available: {[t['function']['name'] for t in openai_tools]}\n")
 
-            messages = [{"role": "user", "content": "Please greet Alice using the greeting tool."}]
+            messages = [{"role": "user", "content": "Please greet George Mateev using the greeting tool."}]
 
-            # Agentic loop — keep going until Claude stops calling tools
+            # Agentic loop — keep going until the model stops calling tools
             while True:
-                response = client.messages.create(
-                    model="claude-opus-4-6",
+                response = client.chat.completions.create(
+                    model=OPENROUTER_MODEL,
                     max_tokens=1024,
-                    tools=anthropic_tools,
+                    tools=openai_tools,
                     messages=messages,
                 )
 
-                if response.stop_reason == "end_turn":
-                    for block in response.content:
-                        if block.type == "text":
-                            print("Claude:", block.text)
+                if not response.choices:
+                    print("Error response:", response)
+                    break
+                choice = response.choices[0]
+                message = choice.message
+
+                if choice.finish_reason == "stop":
+                    print("OpenRouter:", message.content)
                     break
 
-                if response.stop_reason == "tool_use":
-                    messages.append({"role": "assistant", "content": response.content})
+                if choice.finish_reason == "tool_calls":
+                    messages.append(message)
 
-                    tool_results = []
-                    for block in response.content:
-                        if block.type == "tool_use":
-                            print(f"Tool call: {block.name}({block.input})")
-                            result = await session.call_tool(block.name, block.input)
-                            text = result.content[0].text if result.content else ""
-                            print(f"Tool result: {text}\n")
-                            tool_results.append({
-                                "type": "tool_result",
-                                "tool_use_id": block.id,
-                                "content": text,
-                            })
-
-                    messages.append({"role": "user", "content": tool_results})
+                    for tool_call in message.tool_calls:
+                        args = json.loads(tool_call.function.arguments)
+                        print(f"Tool call: {tool_call.function.name}({args})")
+                        result = await session.call_tool(tool_call.function.name, args)
+                        text = result.content[0].text if result.content else ""
+                        print(f"Tool result: {text}\n")
+                        messages.append({
+                            "role": "tool",
+                            "tool_call_id": tool_call.id,
+                            "content": text,
+                        })
                 else:
                     break
 
