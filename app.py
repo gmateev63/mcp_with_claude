@@ -7,7 +7,7 @@ from openai import OpenAI
 from mcp import ClientSession
 from mcp.client.stdio import StdioServerParameters, stdio_client
 
-OPENROUTER_MODEL = "openai/gpt-oss-20b:free"
+OPENROUTER_MODEL = "nvidia/nemotron-3-super-120b-a12b:free" #"openai/gpt-oss-20b:free"
 
 async def main():
     client = OpenAI(
